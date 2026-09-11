@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal OS — العملاء</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    .modal-backdrop[hidden] { display: none !important; }
+
+    /* ===== Tiers Editor ===== */
+    .tiers-editor { margin-top:14px; padding:14px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); }
+    .tiers-editor-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .tiers-editor-head h4 { font-size:12px; font-weight:700; color:#e8edf7; margin:0; }
+    .tiers-editor-head .tiers-hint { font-size:10px; color:#5a6378; }
+    .tier-row { display:grid; grid-template-columns:auto 70px auto 90px auto 36px; gap:6px; align-items:center; padding:6px 0; }
+    .tier-row .tl { font-size:11px; color:#8892a6; white-space:nowrap; }
+    .tier-row input { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:7px; color:#e8edf7; font-family:inherit; font-size:13px; padding:7px 8px; text-align:center; }
+    .tier-row input:focus { outline:none; border-color:rgba(74,222,128,0.5); background:rgba(74,222,128,0.04); }
+    .tier-row .tier-remove { background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.2); color:#f87171; width:30px; height:30px; border-radius:7px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; transition:.15s; }
+    .tier-row .tier-remove:hover { background:rgba(248,113,113,0.2); }
+    .tier-row .tier-remove:disabled { opacity:.3; cursor:not-allowed; }
+    .add-tier-btn { margin-top:8px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.25); color:#4ade80; font-family:inherit; font-size:12px; font-weight:600; padding:7px 14px; border-radius:8px; cursor:pointer; transition:.15s; }
+    .add-tier-btn:hover { background:rgba(74,222,128,0.18); }
+
+    /* ===== Service Row — price + override ===== */
+    .service-row .service-info { position:relative; }
+    .service-row .unit-price-line { display:flex; align-items:center; gap:6px; margin-top:2px; }
+    .service-row .unit-price-text { font-size:11px; color:#5a6378; }
+    .service-row .unit-price-text.overridden { color:#a78bfa; }
+    .service-row .edit-price-btn { background:none; border:none; color:#5a6378; cursor:pointer; font-size:11px; padding:0 2px; transition:.15s; }
+    .service-row .edit-price-btn:hover { color:#4ade80; }
+    .service-row .unit-price-input { width:60px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.3); border-radius:6px; color:#e8edf7; font-family:inherit; font-size:12px; padding:3px 6px; text-align:center; }
+    .service-row .unit-price-input:focus { outline:none; border-color:#a78bfa; }
+    .service-row .tier-badge { display:inline-block; font-size:10px; padding:1px 6px; border-radius:8px; background:rgba(74,222,128,0.1); color:#4ade80; margin-right:4px; }
+    .service-row .reset-price-btn { background:none; border:none; color:#a78bfa; cursor:pointer; font-size:10px; padding:0 4px; }
+
+    /* ===== Manage Services ===== */
+    .svc-list-row { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); margin-bottom:8px; }
+    .svc-list-info { flex:1; min-width:0; }
+    .svc-list-name { font-size:14px; font-weight:600; color:#e8edf7; }
+    .svc-list-tiers { font-size:11px; color:#8892a6; margin-top:4px; display:flex; flex-wrap:wrap; gap:8px; }
+    .svc-list-tiers .t { padding:2px 8px; border-radius:10px; background:rgba(74,222,128,0.08); color:#4ade80; }
+    .svc-list-actions { display:flex; gap:6px; }
+    .svc-list-actions button { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#8892a6; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:12px; transition:.15s; }
+    .svc-list-actions button:hover { background:rgba(255,255,255,0.08); color:#e8edf7; }
+    .svc-list-actions button.del:hover { background:rgba(248,113,113,0.15); color:#f87171; border-color:rgba(248,113,113,0.3); }
+
+    /* ===== Work Status Badges ===== */
+    .status-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:10px; font-weight:700; letter-spacing:.2px;
+      padding:3px 9px; border-radius:20px;
+      white-space:nowrap;
+    }
+    .status-badge.draft      { background:rgba(148,163,184,0.15); color:#94a3b8; }
+    .status-badge.review     { background:rgba(251,191,36,0.15);  color:#fbbf24; }
+    .status-badge.delivered  { background:rgba(56,189,248,0.15);  color:#38bdf8; }
+    .status-badge.paid       { background:rgba(74,222,128,0.15);  color:#4ade80; }
+
+    /* ===== Client Status Badge ===== */
+    .client-status-dot {
+      display:inline-block; width:8px; height:8px; border-radius:50%;
+    }
+    .client-status-dot.active   { background:#4ade80; box-shadow:0 0 6px rgba(74,222,128,0.5); }
+    .client-status-dot.inactive { background:#64748b; }
+    .client-status-dot.vip      { background:#fbbf24; box-shadow:0 0 8px rgba(251,191,36,0.7); }
+
+    /* ===== Client Tags ===== */
+    .tag-chip {
+      display:inline-block; font-size:10px; padding:2px 8px; border-radius:10px;
+      background:rgba(167,139,250,0.12); color:#a78bfa;
+      margin-left:4px; font-weight:600;
+    }
+
+    /* ===== Client List Toolbar ===== */
+    .clients-toolbar {
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      margin-bottom:16px;
+      padding:14px 16px;
+      border-radius:12px;
+      background:rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.05);
+    }
+    .clients-toolbar .ct-search {
+      flex:1; min-width:200px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:10px;
+      padding:10px 14px;
+      color:#e8edf7; font-family:inherit; font-size:13px;
+    }
+    .clients-toolbar .ct-search:focus { outline:none; border-color:rgba(74,222,128,0.4); }
+    .clients-toolbar .ct-select {
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:10px;
+      padding:10px 12px;
+      color:#e8edf7; font-family:inherit; font-size:12px;
+      cursor:pointer;
+    }
+    .clients-toolbar .ct-count {
+      font-size:12px; color:#8892a6;
+      padding:0 8px;
+    }
+
+    /* ===== Bulk Actions Bar ===== */
+    .bulk-bar {
+      display:flex; align-items:center; gap:10px;
+      padding:12px 16px;
+      margin-top:12px;
+      border-radius:10px;
+      background:linear-gradient(135deg, rgba(74,222,128,0.08), rgba(56,189,248,0.06));
+      border:1px solid rgba(74,222,128,0.25);
+      animation:fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .bulk-bar .bl-count { font-size:13px; color:#e8edf7; font-weight:700; }
+    .bulk-bar .bl-spacer { flex:1; }
+    .bulk-bar button {
+      font-family:inherit; font-size:12px; font-weight:600;
+      padding:7px 14px; border-radius:8px;
+      border:1px solid; cursor:pointer; transition:.15s;
+    }
+    .bulk-bar .bulk-status {
+      background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.3); color:#38bdf8;
+    }
+    .bulk-bar .bulk-status:hover { background:rgba(56,189,248,0.2); }
+    .bulk-bar .bulk-delete {
+      background:rgba(248,113,113,0.12); border-color:rgba(248,113,113,0.3); color:#f87171;
+    }
+    .bulk-bar .bulk-delete:hover { background:rgba(248,113,113,0.2); }
+    .bulk-bar .bulk-cancel {
+      background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); color:#8892a6;
+    }
+
+    /* ===== Works Table updates ===== */
+    .data-table .row-checkbox {
+      width:16px; height:16px; cursor:pointer;
+      accent-color:#4ade80;
+    }
+    .data-table th.col-check,
+    .data-table td.col-check { width:36px; text-align:center; padding:6px 4px; }
+    .data-table td.col-status { width:90px; }
+    .data-table td.col-notes { max-width:180px; font-size:11px; color:#8892a6; }
+    .data-table td.col-actions { width:110px; }
+    .status-select-inline {
+      background:transparent; border:none;
+      font-family:inherit; cursor:pointer;
+      padding:0;
+    }
+    .row-actions {
+      display:flex; gap:4px; justify-content:flex-end;
+    }
+    .row-actions .icon-btn {
+      width:28px; height:28px;
+    }
+
+    /* ===== Status Distribution ===== */
+    .status-dist {
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:8px;
+      margin-top:14px;
+    }
+    @media (max-width:700px) { .status-dist { grid-template-columns:repeat(2,1fr); } }
+    .status-dist-box {
+      padding:10px 12px; border-radius:10px;
+      background:rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.05);
+      text-align:center;
+    }
+    .status-dist-label { font-size:10px; color:#5a6378; margin-bottom:4px; }
+    .status-dist-value { font-size:18px; font-weight:800; }
+
+    /* ===== Work Form Footer ===== */
+    .work-form-extras {
+      display:grid; grid-template-columns:1fr 2fr;
+      gap:12px; margin-top:12px;
+    }
+    @media (max-width:700px) { .work-form-extras { grid-template-columns:1fr; } }
+
+    /* ===== Client Modal Extras ===== */
+    .client-status-picker {
+      display:flex; gap:8px;
+      margin-top:6px;
+    }
+    .client-status-picker button {
+      flex:1;
+      padding:10px;
+      border-radius:10px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.08);
+      color:#8892a6;
+      font-family:inherit; font-size:12px; font-weight:600;
+      cursor:pointer; transition:.15s;
+    }
+    .client-status-picker button:hover { background:rgba(255,255,255,0.06); color:#e8edf7; }
+    .client-status-picker button.active[data-status="active"]   { background:rgba(74,222,128,0.15); color:#4ade80; border-color:rgba(74,222,128,0.4); }
+    .client-status-picker button.active[data-status="inactive"] { background:rgba(148,163,184,0.15); color:#94a3b8; border-color:rgba(148,163,184,0.4); }
+    .client-status-picker button.active[data-status="vip"]      { background:rgba(251,191,36,0.15); color:#fbbf24; border-color:rgba(251,191,36,0.4); }
+
+    .tags-input-wrap {
+      display:flex; flex-wrap:wrap; gap:6px;
+      padding:8px;
+      border-radius:10px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.08);
+      min-height:44px;
+      align-items:center;
+    }
+    .tags-input-wrap:focus-within { border-color:rgba(74,222,128,0.4); }
+    .tags-input-wrap .tg-chip {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:4px 10px; border-radius:12px;
+      background:rgba(167,139,250,0.15); color:#a78bfa;
+      font-size:11px; font-weight:600;
+    }
+    .tags-input-wrap .tg-chip button {
+      background:none; border:none; color:#a78bfa;
+      cursor:pointer; font-size:12px; padding:0;
+    }
+    .tags-input-wrap input {
+      flex:1; min-width:80px;
+      background:transparent; border:none;
+      color:#e8edf7; font-family:inherit; font-size:12px;
+      outline:none; padding:4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">PO</div>
+      <div class="brand-text">
+        <div class="brand-name">Personal OS</div>
+        <div class="brand-sub">Business Control Center</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">▦</span><span>لوحة التحكم</span></a>
+      <a href="clients.html" class="nav-item active"><span class="nav-icon">👤</span><span>العملاء</span></a>
+      <a href="income.html" class="nav-item"><span class="nav-icon">₤</span><span>الدخل والمشاريع</span></a>
+      <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span><span>المصروفات</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">AURA VISUALS</div>
+          <div class="user-sub">Personal Workspace</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">العملاء</h1>
+        <p class="page-sub" id="clientsSub">—</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" id="addClientBtn">+ عميل جديد</button>
+      </div>
+    </header>
+
+    <!-- ============ LIST VIEW ============ -->
+    <div id="listView">
+      <div class="clients-toolbar">
+        <input type="search" id="clientSearch" class="ct-search" placeholder="ابحث بالاسم، الشركة، أو الهاتف…" />
+        <select id="clientStatusFilter" class="ct-select">
+          <option value="">كل الحالات</option>
+          <option value="active">نشط</option>
+          <option value="vip">VIP</option>
+          <option value="inactive">غير نشط</option>
+        </select>
+        <select id="clientSort" class="ct-select">
+          <option value="activity-desc">آخر نشاط (الأحدث)</option>
+          <option value="revenue-desc">إجمالي الإيراد (الأعلى)</option>
+          <option value="revenue-asc">إجمالي الإيراد (الأدنى)</option>
+          <option value="name-asc">الاسم (أ-ي)</option>
+          <option value="name-desc">الاسم (ي-أ)</option>
+          <option value="created-desc">تاريخ الإضافة (الأحدث)</option>
+        </select>
+        <span class="ct-count" id="clientsCount">—</span>
+      </div>
+
+      <section class="card">
+        <div class="clients-grid" id="clientsGrid"></div>
+        <div class="empty-state" id="clientsEmpty" hidden>
+          <div class="empty-icon">👤</div>
+          <h3>لا يوجد عملاء بعد</h3>
+          <p>أضف عميلك الأول لتبدأ بتسجيل الأعمال والإيرادات.</p>
+          <button class="btn-primary" onclick="document.getElementById('addClientBtn').click()">+ عميل جديد</button>
+        </div>
+        <div class="empty-state" id="clientsNoResults" hidden>
+          <div class="empty-icon">🔍</div>
+          <h3>لا توجد نتائج مطابقة</h3>
+          <p>جرّب تغيير كلمة البحث أو الفلاتر.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ DETAIL VIEW ============ -->
+    <div id="detailView" hidden>
+      <section class="card detail-header">
+        <div class="detail-top">
+          <button class="btn-ghost" id="backBtn">← رجوع للعملاء</button>
+          <div class="detail-actions">
+            <button class="btn-ghost" id="exportCsvBtn">📥 تصدير CSV</button>
+            <button class="btn-ghost" id="editClientBtn">✎ تعديل</button>
+            <button class="btn-ghost" id="invoiceBtn">🧾 فاتورة</button>
+            <button class="btn-ghost" id="deleteClientBtn">🗑 حذف</button>
+          </div>
+        </div>
+        <div class="detail-info">
+          <h2 id="detailName">—</h2>
+          <p id="detailMeta">—</p>
+        </div>
+      </section>
+
+      <section class="stat-strip">
+        <div class="stat-box">
+          <div class="stat-label">إجمالي الإيراد</div>
+          <div class="stat-value" id="statTotal">0 ج.م</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">عدد الأعمال</div>
+          <div class="stat-value" id="statWorks">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">متوسط قيمة العمل</div>
+          <div class="stat-value" id="statAvg">0 ج.م</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">آخر عمل</div>
+          <div class="stat-value" id="statLast">—</div>
+        </div>
+      </section>
+
+      <!-- Status Distribution -->
+      <section class="card">
+        <header class="card-head">
+          <h2>حالة الأعمال</h2>
+        </header>
+        <div class="status-dist" id="statusDist"></div>
+      </section>
+
+      <!-- Work form -->
+      <section class="card">
+        <header class="card-head">
+          <h2>تسجيل عمل جديد</h2>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-ghost" id="manageServicesBtn">⚙ إدارة الخدمات</button>
+            <button class="btn-ghost" id="addServiceBtn">+ خدمة جديدة</button>
+          </div>
+        </header>
+
+        <div class="form-grid">
+          <label class="field">
+            <span>التاريخ *</span>
+            <input type="date" id="workDate" />
+          </label>
+          <label class="field">
+            <span>Product Code *</span>
+            <input type="text" id="productCode" placeholder="مثال: 2020" />
+          </label>
+        </div>
+
+        <div class="services-builder" id="servicesBuilder"></div>
+
+        <div class="work-form-extras">
+          <label class="field">
+            <span>حالة العمل</span>
+            <select id="workStatus">
+              <option value="draft">📝 مسودة</option>
+              <option value="review">🔍 مراجعة</option>
+              <option value="delivered" selected>✅ تم التسليم</option>
+              <option value="paid">💰 مدفوع</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>ملاحظات</span>
+            <input type="text" id="workNotes" placeholder="اختياري" />
+          </label>
+        </div>
+
+        <div class="work-foot">
+          <div class="work-total-wrap">
+            <span>الإجمالي</span>
+            <strong id="workTotal">0 ج.م</strong>
+          </div>
+          <div class="work-actions">
+            <button class="btn-ghost" id="resetWorkBtn">تفريغ</button>
+            <button class="btn-primary" id="addWorkBtn">+ إضافة العمل</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Work history -->
+      <section class="card">
+        <header class="card-head">
+          <h2>سجل الأعمال</h2>
+        </header>
+
+        <div class="toolbar">
+          <input type="search" id="workSearch" class="input-search" placeholder="ابحث بكود المنتج أو اسم الخدمة…" />
+          <select id="workStatusFilter" class="input-select">
+            <option value="">كل الحالات</option>
+            <option value="draft">📝 مسودة</option>
+            <option value="review">🔍 مراجعة</option>
+            <option value="delivered">✅ تم التسليم</option>
+            <option value="paid">💰 مدفوع</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" id="selectAllWorks" class="row-checkbox" /></th>
+                <th>التاريخ</th>
+                <th>كود المنتج</th>
+                <th>الخدمات</th>
+                <th>الكمية</th>
+                <th>الإجمالي</th>
+                <th>الحالة</th>
+                <th>ملاحظات</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="worksBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Bulk Action Bar -->
+        <div class="bulk-bar" id="bulkBar" hidden>
+          <span class="bl-count" id="bulkCount">0 محدد</span>
+          <span class="bl-spacer"></span>
+          <button type="button" class="bulk-status" id="bulkChangeStatus">تغيير الحالة</button>
+          <button type="button" class="bulk-delete" id="bulkDelete">حذف المحدد</button>
+          <button type="button" class="bulk-cancel" id="bulkCancel">إلغاء</button>
+        </div>
+
+        <div id="worksEmpty" class="empty-state" hidden>
+          <div class="empty-icon">✦</div>
+          <h3>لا توجد أعمال مسجّلة</h3>
+          <p>استخدم النموذج بالأعلى لتسجيل أول عمل لهذا العميل.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ============ CLIENT MODAL ============ -->
+<div class="modal-backdrop" id="clientModal" hidden>
+  <div class="modal" style="max-width:520px;width:90vw;">
+    <header class="modal-head">
+      <h2 id="clientModalTitle">عميل جديد</h2>
+      <button class="modal-close" data-close="clientModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <label class="field"><span>اسم العميل *</span><input type="text" id="cName" placeholder="مثال: MoonLight Factory" /></label>
+      <label class="field"><span>الشركة</span><input type="text" id="cCompany" placeholder="اختياري" /></label>
+      <label class="field"><span>رقم الهاتف</span><input type="text" id="cPhone" placeholder="اختياري" /></label>
+
+      <label class="field">
+        <span>حالة العميل</span>
+        <div class="client-status-picker" id="clientStatusPicker">
+          <button type="button" data-status="active">🟢 نشط</button>
+          <button type="button" data-status="inactive">⚪ غير نشط</button>
+          <button type="button" data-status="vip">⭐ VIP</button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>وسوم (Tags)</span>
+        <div class="tags-input-wrap" id="tagsWrap">
+          <input type="text" id="tagInput" placeholder="اكتب الوسم واضغط Enter…" />
+        </div>
+      </label>
+
+      <label class="field"><span>ملاحظات</span><textarea id="cNotes" rows="3" placeholder="اختياري"></textarea></label>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="clientModal">إلغاء</button>
+      <button class="btn-primary" id="saveClientBtn">حفظ</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ SERVICE MODAL ============ -->
+<div class="modal-backdrop" id="serviceModal" hidden>
+  <div class="modal" style="max-width:520px;width:90vw;">
+    <header class="modal-head">
+      <h2 id="serviceModalTitle">خدمة جديدة</h2>
+      <button class="modal-close" data-close="serviceModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <label class="field">
+        <span>اسم الخدمة *</span>
+        <input type="text" id="sName" placeholder="مثال: إنشاء صورة" />
+      </label>
+      <div class="tiers-editor">
+        <div class="tiers-editor-head">
+          <h4>مستويات السعر</h4>
+          <span class="tiers-hint">السعر يتحدد تلقائيًا حسب الكمية</span>
+        </div>
+        <div id="tiersList"></div>
+        <button type="button" class="add-tier-btn" id="addTierBtn">+ إضافة مستوى سعر</button>
+      </div>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="serviceModal">إلغاء</button>
+      <button class="btn-primary" id="saveServiceBtn">حفظ</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ MANAGE SERVICES MODAL ============ -->
+<div class="modal-backdrop" id="manageServicesModal" hidden>
+  <div class="modal" style="max-width:560px;width:90vw;">
+    <header class="modal-head">
+      <h2>إدارة الخدمات</h2>
+      <button class="modal-close" data-close="manageServicesModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <div id="servicesManageList"></div>
+      <div id="servicesManageEmpty" class="empty-mini" style="padding:20px;text-align:center;color:#8892a6;font-size:14px;" hidden>
+        لا توجد خدمات بعد.
+      </div>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="manageServicesModal">إغلاق</button>
+      <button class="btn-primary" id="addServiceFromManage">+ خدمة جديدة</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ BULK STATUS MODAL ============ -->
+<div class="modal-backdrop" id="bulkStatusModal" hidden>
+  <div class="modal" style="max-width:400px;width:90vw;">
+    <header class="modal-head">
+      <h2>تغيير حالة الأعمال المحددة</h2>
+      <button class="modal-close" data-close="bulkStatusModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button type="button" class="btn-ghost" data-bulk-status="draft" style="padding:14px;justify-content:flex-start;">📝 مسودة</button>
+        <button type="button" class="btn-ghost" data-bulk-status="review" style="padding:14px;justify-content:flex-start;">🔍 مراجعة</button>
+        <button type="button" class="btn-ghost" data-bulk-status="delivered" style="padding:14px;justify-content:flex-start;">✅ تم التسليم</button>
+        <button type="button" class="btn-ghost" data-bulk-status="paid" style="padding:14px;justify-content:flex-start;">💰 مدفوع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/clients.js"></script>
+</body>
+</html>

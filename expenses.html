@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal OS — المصروفات والاشتراكات</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    .modal-backdrop[hidden] { display: none !important; }
+
+    /* ==== Tabs ==== */
+    .tabs { display: flex; gap: 6px; margin-bottom: 16px; padding: 6px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); width: fit-content; }
+    .tab { padding: 9px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; color: #8892a6; background: transparent; border: none; transition: .15s; }
+    .tab:hover { color: #e8edf7; }
+    .tab.active { background: #4ade80; color: #0a1018; }
+    .tab-content[hidden] { display: none !important; }
+
+    /* ==== Renewal Alerts ==== */
+    .renewals-card { margin-bottom: 16px; padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, rgba(251,191,36,0.06), rgba(248,113,113,0.06)); border: 1px solid rgba(251,191,36,0.2); }
+    .renewals-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .renewals-title { font-size: 13px; font-weight: 700; color: #fbbf24; }
+    .renewals-list { display: flex; flex-direction: column; gap: 8px; }
+    .renewal-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,0,0,0.15); border-radius: 8px; font-size: 13px; }
+    .renewal-row.urgent { border-right: 3px solid #f87171; }
+    .renewal-row.soon   { border-right: 3px solid #fbbf24; }
+    .renewal-info strong { color: #e8edf7; }
+    .renewal-days { font-size: 11px; color: #8892a6; margin-right: 8px; }
+    .renewal-amount { color: #fbbf24; font-weight: 700; }
+
+    /* ==== Cycle chip ==== */
+    .cycle-chip { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(56,189,248,0.12); color: #38bdf8; letter-spacing: .3px; font-weight: 600; }
+    .cycle-chip.monthly   { background: rgba(74,222,128,0.12); color: #4ade80; }
+    .cycle-chip.yearly    { background: rgba(167,139,250,0.12); color: #a78bfa; }
+    .cycle-chip.quarterly { background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+    /* ==== Scope chip ==== */
+    .scope-chip { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; letter-spacing: .3px; }
+    .scope-chip.project  { background: rgba(56,189,248,0.12); color: #38bdf8; }
+    .scope-chip.personal { background: rgba(167,139,250,0.12); color: #a78bfa; }
+
+    /* ==== Status dots ==== */
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; }
+    .status-dot.active   { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+    .status-dot.inactive { background: #5a6378; }
+
+    /* ==== Pagination ==== */
+    .pagination { display: flex; gap: 6px; justify-content: center; align-items: center; padding: 16px 0 4px; flex-wrap: wrap; }
+    .pg-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #8892a6; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; min-width: 34px; transition: .15s; }
+    .pg-btn:hover:not(:disabled) { background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.3); color: #4ade80; }
+    .pg-btn.active { background: #4ade80; color: #0a1018; border-color: #4ade80; font-weight: 700; }
+    .pg-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .pg-dots { color: #5a6378; padding: 0 4px; }
+
+    .toggle-active { background: none; border: none; cursor: pointer; padding: 4px; font-size: 14px; color: #8892a6; }
+    .toggle-active:hover { opacity: 0.7; }
+
+    /* ==== Scope segmented control in modal ==== */
+    .scope-seg { display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px; }
+    .scope-seg button { flex: 1; padding: 10px; border-radius: 8px; border: none; background: transparent; color: #8892a6; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: .15s; }
+    .scope-seg button:hover { color: #e8edf7; }
+    .scope-seg button.active[data-scope="project"]  { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .scope-seg button.active[data-scope="personal"] { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+    /* ==== Client field (hideable) ==== */
+    .field-client[hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">PO</div>
+      <div class="brand-text">
+        <div class="brand-name">Personal OS</div>
+        <div class="brand-sub">Business Control Center</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">▦</span><span>لوحة التحكم</span></a>
+      <a href="clients.html" class="nav-item"><span class="nav-icon">👤</span><span>العملاء</span></a>
+      <a href="income.html" class="nav-item"><span class="nav-icon">₤</span><span>الدخل الإضافي</span></a>
+      <a href="expenses.html" class="nav-item active"><span class="nav-icon">💸</span><span>المصروفات</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">AURA VISUALS</div>
+          <div class="user-sub">Personal Workspace</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">المصروفات والاشتراكات</h1>
+        <p class="page-sub" id="expensesSub">—</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" id="addBtn">+ إضافة</button>
+      </div>
+    </header>
+
+    <!-- Summary strip -->
+    <section class="stat-strip">
+      <div class="stat-box">
+        <div class="stat-label">تكلفة شهرية تقديرية</div>
+        <div class="stat-value" id="expMonthly">0 ج.م</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">اشتراكات نشطة</div>
+        <div class="stat-value" id="expActiveSubs">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">مصروفات (هذا الشهر)</div>
+        <div class="stat-value" id="expMonthTotal">0 ج.م</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">إجمالي كل الفترات</div>
+        <div class="stat-value" id="expAllTime">0 ج.م</div>
+      </div>
+    </section>
+
+    <!-- Renewal alerts -->
+    <section class="renewals-card" id="renewalsCard" hidden>
+      <div class="renewals-head">
+        <span>🔔</span>
+        <span class="renewals-title">تنبيهات التجديد</span>
+      </div>
+      <div class="renewals-list" id="renewalsList"></div>
+    </section>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="subs" role="tab">الاشتراكات الدورية</button>
+      <button class="tab" data-tab="expenses" role="tab">المصروفات</button>
+    </div>
+
+    <!-- ===== TAB: Subscriptions ===== -->
+    <div class="tab-content" id="tab-subs">
+      <div class="toolbar">
+        <input type="search" id="subSearch" class="input-search" placeholder="ابحث باسم الاشتراك أو التصنيف…" />
+        <select id="subCategoryFilter" class="input-select">
+          <option value="">كل التصنيفات</option>
+        </select>
+        <select id="subSort" class="input-select">
+          <option value="renewal-asc">التجديد (الأقرب)</option>
+          <option value="renewal-desc">التجديد (الأبعد)</option>
+          <option value="amount-desc">المبلغ (الأعلى)</option>
+          <option value="amount-asc">المبلغ (الأدنى)</option>
+          <option value="name-asc">الاسم (أ-ي)</option>
+        </select>
+      </div>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الحالة</th>
+                <th>الاسم</th>
+                <th>التصنيف</th>
+                <th>الدورة</th>
+                <th>المبلغ</th>
+                <th>التجديد القادم</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="subsBody"></tbody>
+          </table>
+        </div>
+        <div id="subsEmpty" class="empty-state" hidden>
+          <div class="empty-icon">🔄</div>
+          <h3>لا توجد اشتراكات بعد</h3>
+          <p>سجّل اشتراكاتك الشهرية (أدوات AI، استضافة، دومين…) لمتابعة تجديداتها تلقائيًا.</p>
+          <button class="btn-primary" onclick="document.getElementById('addBtn').click()">+ إضافة اشتراك</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== TAB: Expenses ===== -->
+    <div class="tab-content" id="tab-expenses" hidden>
+      <div class="toolbar">
+        <input type="search" id="exSearch" class="input-search" placeholder="ابحث في المصروفات…" />
+        <select id="exScopeFilter" class="input-select">
+          <option value="">كل الأنواع</option>
+          <option value="project">مشروع</option>
+          <option value="personal">شخصي</option>
+        </select>
+        <select id="exCategoryFilter" class="input-select">
+          <option value="">كل التصنيفات</option>
+        </select>
+        <select id="exSort" class="input-select">
+          <option value="date-desc">التاريخ (الأحدث)</option>
+          <option value="date-asc">التاريخ (الأقدم)</option>
+          <option value="amount-desc">المبلغ (الأعلى)</option>
+          <option value="amount-asc">المبلغ (الأدنى)</option>
+        </select>
+      </div>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>العنوان</th>
+                <th>النوع</th>
+                <th>التصنيف</th>
+                <th>العميل</th>
+                <th>المبلغ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expBody"></tbody>
+          </table>
+        </div>
+        <div id="expEmpty" class="empty-state" hidden>
+          <div class="empty-icon">💸</div>
+          <h3>لا توجد مصروفات بعد</h3>
+          <p>سجّل مصروفات المشاريع أو مصروفاتك الشخصية (ملابس، خروجات، صحة…).</p>
+          <button class="btn-primary" onclick="document.getElementById('addBtn').click()">+ إضافة مصروف</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ============ SUBSCRIPTION MODAL ============ -->
+<div class="modal-backdrop" id="subModal" hidden>
+  <div class="modal">
+    <header class="modal-head">
+      <h2 id="subModalTitle">اشتراك جديد</h2>
+      <button class="modal-close" data-close="subModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <label class="field">
+        <span>الاسم *</span>
+        <input type="text" id="sName" placeholder="مثال: ChatGPT Plus" />
+      </label>
+      <div class="form-grid">
+        <label class="field">
+          <span>المبلغ (ج.م) *</span>
+          <input type="number" id="sAmount" min="0" step="1" placeholder="0" />
+        </label>
+        <label class="field">
+          <span>الدورة *</span>
+          <select id="sCycle">
+            <option value="monthly">شهري</option>
+            <option value="quarterly">ربع سنوي</option>
+            <option value="yearly">سنوي</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>التصنيف</span>
+          <input type="text" id="sCategory" list="subCatList" placeholder="AI Tools / Hosting / Domain…" />
+          <datalist id="subCatList">
+            <option value="AI Tools"></option>
+            <option value="Hosting"></option>
+            <option value="Domain"></option>
+            <option value="Software"></option>
+            <option value="Ads"></option>
+            <option value="Other"></option>
+          </datalist>
+        </label>
+        <label class="field">
+          <span>تاريخ التجديد القادم *</span>
+          <input type="date" id="sNextRenewal" />
+        </label>
+      </div>
+      <label class="field">
+        <span>ملاحظات</span>
+        <textarea id="sNotes" rows="2" placeholder="اختياري"></textarea>
+      </label>
+      <label class="field" style="flex-direction:row;align-items:center;gap:10px;">
+        <input type="checkbox" id="sActive" checked style="width:auto;" />
+        <span>نشط (يتجدد)</span>
+      </label>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="subModal">إلغاء</button>
+      <button class="btn-primary" id="saveSubBtn">حفظ</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ EXPENSE MODAL ============ -->
+<div class="modal-backdrop" id="expModal" hidden>
+  <div class="modal">
+    <header class="modal-head">
+      <h2 id="expModalTitle">مصروف جديد</h2>
+      <button class="modal-close" data-close="expModal">✕</button>
+    </header>
+    <div class="modal-body">
+
+      <!-- Scope segmented control -->
+      <div class="scope-seg" id="expScopeSeg">
+        <button type="button" data-scope="project" class="active">📁 مشروع</button>
+        <button type="button" data-scope="personal">👤 شخصي</button>
+      </div>
+
+      <label class="field">
+        <span>العنوان *</span>
+        <input type="text" id="eTitle" placeholder="مثال: شراء دومين / ملابس" />
+      </label>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>المبلغ (ج.م) *</span>
+          <input type="number" id="eAmount" min="0" step="1" placeholder="0" />
+        </label>
+        <label class="field">
+          <span>التاريخ *</span>
+          <input type="date" id="eDate" />
+        </label>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>التصنيف</span>
+          <input type="text" id="eCategory" list="expCatList" placeholder="اختر أو اكتب تصنيفًا…" />
+          <datalist id="expCatList">
+            <!-- Personal -->
+            <option value="Food"></option>
+            <option value="Shopping"></option>
+            <option value="Clothes"></option>
+            <option value="Transport"></option>
+            <option value="Health"></option>
+            <option value="Entertainment"></option>
+            <option value="Bills"></option>
+            <option value="Family"></option>
+            <!-- Project -->
+            <option value="Domain"></option>
+            <option value="Design"></option>
+            <option value="Ads"></option>
+            <option value="Tools"></option>
+            <option value="Hardware"></option>
+            <!-- Common -->
+            <option value="Other"></option>
+          </datalist>
+        </label>
+        <label class="field field-client" id="eClientField">
+          <span>العميل المرتبط (اختياري)</span>
+          <select id="eClient">
+            <option value="">— بدون —</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>ملاحظات</span>
+        <textarea id="eNotes" rows="2" placeholder="اختياري"></textarea>
+      </label>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="expModal">إلغاء</button>
+      <button class="btn-primary" id="saveExpBtn">حفظ</button>
+    </footer>
+  </div>
+</div>
+
+<script src="js/expenses.js"></script>
+</body>
+</html>

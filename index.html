@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal OS — لوحة التحكم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* Smart Goals */
+    .goal-main{padding:16px;border-radius:12px;background:linear-gradient(135deg,rgba(74,222,128,.04),rgba(56,189,248,.04));border:1px solid rgba(74,222,128,.15);margin-bottom:12px}
+    .goal-reason{font-size:11px;color:#5a6378;margin-top:6px}
+    .goal-status{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+    .status-success{background:rgba(74,222,128,.15);color:#4ade80}
+    .status-warn{background:rgba(251,191,36,.15);color:#fbbf24}
+    .status-danger{background:rgba(248,113,113,.15);color:#f87171}
+    .progress-bar.success{background:linear-gradient(90deg,#4ade80,#22c55e)}
+    .progress-bar.warn{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+    .progress-bar.danger{background:linear-gradient(90deg,#f87171,#ef4444)}
+    .goal-pace{display:flex;gap:12px;margin-top:12px;padding:14px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05)}
+    .pace-row{flex:1;display:flex;flex-direction:column;gap:4px}
+    .pace-label{font-size:11px;color:#5a6378}
+    .pace-value{font-size:15px;color:#e8edf7;font-weight:700}
+    .pace-value.negative{color:#f87171}
+    .pace-value.positive{color:#4ade80}
+    .goal-action{display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:14px;border-radius:10px;background:linear-gradient(135deg,rgba(56,189,248,.06),rgba(167,139,250,.06));border:1px solid rgba(56,189,248,.15)}
+    .action-icon{font-size:22px;line-height:1}
+    .action-body{flex:1}
+    .action-title{font-size:13px;font-weight:700;color:#e8edf7;margin-bottom:4px}
+    .action-text{font-size:12px;color:#8892a6;line-height:1.6}
+    .goal-projection{margin-top:12px;padding:10px 14px;border-radius:10px;background:rgba(167,139,250,.06);border:1px dashed rgba(167,139,250,.2);font-size:12px;color:#b8c1d4;display:flex;justify-content:space-between;align-items:center}
+    .goal-projection strong{color:#a78bfa;font-size:14px}
+
+    /* Business Health */
+    .health-card{padding:20px 24px}
+    .health-body{display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+    .health-ring{position:relative;width:140px;height:140px;flex-shrink:0}
+    .health-ring svg{transform:rotate(-90deg);display:block}
+    .health-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .health-grade{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px}
+    .health-score-num{font-size:11px;color:#5a6378;margin-top:6px}
+    .health-breakdown{flex:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;min-width:320px}
+    .health-metric{display:flex;flex-direction:column;gap:6px}
+    .health-metric-label{font-size:11px;color:#5a6378;line-height:1.3}
+    .health-metric-value{font-size:17px;font-weight:700;color:#e8edf7}
+    .health-metric-value span{color:#5a6378;font-size:11px;font-weight:500}
+    .health-bar{height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden}
+    .health-bar-fill{height:100%;border-radius:2px;transition:width .6s ease}
+    @media (max-width:900px){.health-breakdown{grid-template-columns:repeat(2,1fr)}}
+
+    /* Financial Snapshot */
+    .fin-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:16px}
+    @media (max-width:1200px){.fin-grid{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:700px){.fin-grid{grid-template-columns:repeat(2,1fr)}}
+    .fin-card{padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:6px;transition:.15s;position:relative}
+    .fin-card:hover{border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
+    .fin-label{font-size:11px;color:#5a6378;display:flex;align-items:center;gap:4px}
+    .fin-value{font-size:18px;font-weight:700;color:#e8edf7;line-height:1.2}
+    .fin-value.positive{color:#4ade80}
+    .fin-value.negative{color:#f87171}
+    .fin-value.warn{color:#fbbf24}
+    .fin-sub{font-size:10px;color:#4a5266;margin-top:2px}
+    .fin-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.06);color:#5a6378;font-size:9px;cursor:help}
+    .fin-info:hover{background:rgba(74,222,128,.2);color:#4ade80}
+
+    /* Charts Grid 2 */
+    .charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    @media (max-width:900px){.charts-grid-2{grid-template-columns:1fr}}
+
+    /* YTD */
+    .ytd-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+    @media (max-width:900px){.ytd-grid{grid-template-columns:repeat(2,1fr)}}
+    .ytd-card{padding:14px 16px;border-radius:12px;background:linear-gradient(135deg,rgba(56,189,248,.04),rgba(74,222,128,.04));border:1px solid rgba(56,189,248,.1)}
+    .ytd-label{font-size:11px;color:#5a6378}
+    .ytd-value{font-size:20px;font-weight:800;color:#e8edf7;margin-top:4px}
+    .ytd-sub{font-size:10px;color:#4a5266;margin-top:2px}
+
+    /* Client Profitability */
+    .profit-table{width:100%;border-collapse:collapse}
+    .profit-table th{text-align:right;font-size:11px;color:#5a6378;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-weight:600}
+    .profit-table td{padding:10px;font-size:13px;color:#e8edf7;border-bottom:1px solid rgba(255,255,255,.03)}
+    .profit-table tr:last-child td{border-bottom:none}
+    .profit-table .p-client{font-weight:600}
+    .profit-table .p-rev{color:#4ade80}
+    .profit-table .p-cost{color:#fbbf24}
+    .profit-table .p-ltv{color:#a78bfa;font-weight:600}
+    .profit-table .p-net.positive{color:#4ade80;font-weight:700}
+    .profit-table .p-net.negative{color:#f87171;font-weight:700}
+    .profit-bar{height:5px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;margin-top:4px}
+    .profit-bar-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+    /* Weekly Rhythm */
+    .rhythm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px 0}
+    .rhythm-day{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:8px;transition:.15s}
+    .rhythm-day:hover{background:rgba(255,255,255,.03)}
+    .rhythm-day .rl{font-size:10px;color:#5a6378}
+    .rhythm-day .rv{font-size:12px;color:#e8edf7;font-weight:700}
+    .rhythm-day.best .rv{color:#4ade80}
+    .rhythm-day.best{background:rgba(74,222,128,.06)}
+    .rhythm-bar-wrap{width:100%;height:60px;display:flex;align-items:flex-end;justify-content:center}
+    .rhythm-bar{width:60%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#4ade80,#22c55e);min-height:2px;transition:height .5s ease}
+
+    /* Activity Grid */
+    .activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    @media (max-width:900px){.activity-grid{grid-template-columns:1fr}}
+    .leaderboard{padding:4px 0}
+    .lb-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+    .lb-row:last-child{border-bottom:none}
+    .lb-rank{width:26px;height:26px;border-radius:50%;background:rgba(74,222,128,.1);color:#4ade80;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .lb-rank.top{background:rgba(251,191,36,.15);color:#fbbf24}
+    .lb-info{flex:1;min-width:0}
+    .lb-name{font-size:13px;color:#e8edf7;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lb-meta{font-size:11px;color:#5a6378;margin-top:2px}
+    .lb-amount{font-size:13px;color:#4ade80;font-weight:700;white-space:nowrap}
+    .activity-feed{max-height:340px;overflow-y:auto;padding-right:4px}
+    .activity-feed::-webkit-scrollbar{width:4px}
+    .activity-feed::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+    .af-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+    .af-row:last-child{border-bottom:none}
+    .af-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .af-icon.work{background:rgba(56,189,248,.15);color:#38bdf8}
+    .af-icon.income{background:rgba(74,222,128,.15);color:#4ade80}
+    .af-icon.expense{background:rgba(248,113,113,.15);color:#f87171}
+    .af-body{flex:1;min-width:0}
+    .af-title{font-size:13px;color:#e8edf7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .af-meta{font-size:11px;color:#5a6378;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .af-amount{font-size:13px;color:#4ade80;font-weight:700;white-space:nowrap}
+    .af-amount.expense{color:#f87171}
+
+    /* Monthly Comparison */
+    .mc-table{width:100%;border-collapse:collapse}
+    .mc-table th{text-align:right;font-size:11px;color:#5a6378;padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-weight:600}
+    .mc-table td{padding:10px 8px;font-size:13px;color:#e8edf7;border-bottom:1px solid rgba(255,255,255,.03)}
+    .mc-table tr:last-child td{border-bottom:none}
+    .mc-table .mc-month{font-weight:700;color:#e8edf7}
+    .mc-table .mc-rev{color:#4ade80}
+    .mc-table .mc-exp{color:#f87171}
+    .mc-table .mc-net.positive{color:#4ade80;font-weight:700}
+    .mc-table .mc-net.negative{color:#f87171;font-weight:700}
+    .mc-table .mc-growth.positive{color:#4ade80}
+    .mc-table .mc-growth.negative{color:#f87171}
+    .mc-table .mc-growth.flat{color:#5a6378}
+
+    /* KPI Grid */
+    .kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr)) !important}
+    @media (max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important}}
+    @media (max-width:700px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
+    #kpiProfit.positive{color:#4ade80}
+    #kpiProfit.negative{color:#f87171}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">PO</div>
+      <div class="brand-text">
+        <div class="brand-name">Personal OS</div>
+        <div class="brand-sub">Business Control Center</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html" class="nav-item active"><span class="nav-icon">▦</span><span>لوحة التحكم</span></a>
+      <a href="clients.html" class="nav-item"><span class="nav-icon">👤</span><span>العملاء</span></a>
+      <a href="income.html" class="nav-item"><span class="nav-icon">₤</span><span>الدخل الإضافي</span></a>
+      <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span><span>المصروفات</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">AURA VISUALS</div>
+          <div class="user-sub">Personal Workspace</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">لوحة التحكم</h1>
+        <p class="page-sub" id="rangeLabel">—</p>
+      </div>
+      <div class="topbar-right">
+        <div class="period-filter" id="periodFilter">
+          <button data-period="today">اليوم</button>
+          <button data-period="week" class="active">هذا الأسبوع</button>
+          <button data-period="month">هذا الشهر</button>
+          <button data-period="lastMonth">الشهر الماضي</button>
+          <button data-period="all">الكل</button>
+          <button data-period="custom">مخصص</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="custom-range" id="customRange" hidden>
+      <label><span>من</span><input type="date" id="fromDate" /></label>
+      <label><span>إلى</span><input type="date" id="toDate" /></label>
+      <button class="btn-primary" id="applyRange">تطبيق</button>
+    </div>
+
+    <section class="kpi-grid">
+      <article class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">إجمالي الدخل</span><span class="kpi-icon icon-green">₤</span></div>
+        <div class="kpi-value" id="kpiIncome">0 ج.م</div>
+        <div class="kpi-foot" id="kpiIncomeDelta">لا توجد بيانات</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">صافي الربح</span><span class="kpi-icon icon-green">₹</span></div>
+        <div class="kpi-value" id="kpiProfit">0 ج.م</div>
+        <div class="kpi-foot" id="kpiProfitDelta">—</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">الأعمال المنجزة</span><span class="kpi-icon icon-blue">✦</span></div>
+        <div class="kpi-value" id="kpiWorks">0</div>
+        <div class="kpi-foot" id="kpiWorksDelta">—</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">متوسط قيمة العمل</span><span class="kpi-icon icon-purple">◈</span></div>
+        <div class="kpi-value" id="kpiAvg">0 ج.م</div>
+        <div class="kpi-foot" id="kpiAvgDelta">—</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">العملاء</span><span class="kpi-icon icon-amber">◉</span></div>
+        <div class="kpi-value" id="kpiClients">0</div>
+        <div class="kpi-foot" id="kpiClientsDelta">—</div>
+      </article>
+    </section>
+
+    <section class="fin-grid">
+      <div class="fin-card">
+        <div class="fin-label">MRR <span class="fin-info" title="Monthly Recurring Revenue — إجمالي الاشتراكات النشطة شهريًا">?</span></div>
+        <div class="fin-value positive" id="finMRR">0 ج.م</div>
+        <div class="fin-sub">إيراد متكرر شهري</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-label">ARR <span class="fin-info" title="Annual Recurring Revenue = MRR × 12">?</span></div>
+        <div class="fin-value" id="finARR">0 ج.م</div>
+        <div class="fin-sub">إيراد متكرر سنوي</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-label">هامش الربح <span class="fin-info" title="(دخل − مصروفات) ÷ دخل × 100">?</span></div>
+        <div class="fin-value" id="finMargin">0%</div>
+        <div class="fin-sub">Net Profit Margin</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-label">معدل الحرق <span class="fin-info" title="متوسط المصروفات الشهرية الفعلية خلال آخر 3 أشهر (مع الاشتراكات)">?</span></div>
+        <div class="fin-value negative" id="finBurn">0 ج.م</div>
+        <div class="fin-sub">Burn Rate / شهر</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-label">Runway <span class="fin-info" title="كم شهر تقدر تغطي مصروفاتك من صافي ربح الفترة الحالية">?</span></div>
+        <div class="fin-value warn" id="finRunway">—</div>
+        <div class="fin-sub">أشهر تغطية</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-label">صافي التوفير <span class="fin-info" title="الدخل − المصروفات (شامل الاشتراكات) خلال الفترة">?</span></div>
+        <div class="fin-value" id="finNet">0 ج.م</div>
+        <div class="fin-sub">هذه الفترة</div>
+      </div>
+    </section>
+
+    <section class="ytd-grid">
+      <div class="ytd-card">
+        <div class="ytd-label">دخل السنة</div>
+        <div class="ytd-value" id="ytdIncome">0 ج.م</div>
+        <div class="ytd-sub" id="ytdIncomeSub">—</div>
+      </div>
+      <div class="ytd-card">
+        <div class="ytd-label">مصروفات السنة</div>
+        <div class="ytd-value" id="ytdExpenses">0 ج.م</div>
+        <div class="ytd-sub" id="ytdExpensesSub">—</div>
+      </div>
+      <div class="ytd-card">
+        <div class="ytd-label">صافي ربح السنة</div>
+        <div class="ytd-value" id="ytdNet">0 ج.م</div>
+        <div class="ytd-sub" id="ytdNetSub">—</div>
+      </div>
+      <div class="ytd-card">
+        <div class="ytd-label">أعمال السنة</div>
+        <div class="ytd-value" id="ytdWorks">0</div>
+        <div class="ytd-sub" id="ytdWorksSub">—</div>
+      </div>
+    </section>
+
+    <section class="card health-card" style="margin-top:16px;">
+      <header class="card-head">
+        <h2>مؤشر صحة البيزنس</h2>
+        <span class="badge-ai">Business Health</span>
+      </header>
+      <div class="health-body">
+        <div class="health-ring">
+          <svg viewBox="0 0 120 120" width="140" height="140">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="10"/>
+            <circle id="healthRing" cx="60" cy="60" r="52" fill="none" stroke="#4ade80" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73"
+                    style="transition: stroke-dashoffset .8s ease, stroke .3s ease;"/>
+          </svg>
+          <div class="health-center">
+            <div class="health-grade" id="healthGrade">—</div>
+            <div class="health-score-num" id="healthScore">0/100</div>
+          </div>
+        </div>
+        <div class="health-breakdown" id="healthBreakdown"></div>
+      </div>
+    </section>
+
+    <section class="charts-grid">
+      <div class="card chart-card wide">
+        <header class="card-head">
+          <h2>الدخل والمصروفات عبر الوقت</h2>
+          <span class="card-hint" id="trendBadge">—</span>
+        </header>
+        <div class="chart-body"><canvas id="chartIncomeOverTime"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <header class="card-head"><h2>الدخل حسب المصدر</h2></header>
+        <div class="chart-body"><canvas id="chartBySource"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <header class="card-head"><h2>أفضل العملاء</h2></header>
+        <div class="chart-body"><canvas id="chartByClient"></canvas></div>
+      </div>
+    </section>
+
+    <section class="charts-grid-2">
+      <div class="card chart-card">
+        <header class="card-head">
+          <h2>توزيع المصروفات</h2>
+          <span class="card-hint">اشتراكات · مشاريع · شخصي</span>
+        </header>
+        <div class="chart-body"><canvas id="chartExpenseBreakdown"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <header class="card-head">
+          <h2>توقع التدفق النقدي</h2>
+          <span class="card-hint">3 أشهر قادمة</span>
+        </header>
+        <div class="chart-body"><canvas id="chartCashFlow"></canvas></div>
+      </div>
+    </section>
+
+    <section class="card insights-card">
+      <header class="card-head">
+        <h2>تحليل ذكي</h2>
+        <span class="badge-ai">AI Insights</span>
+      </header>
+      <ul class="insights" id="insightsList"></ul>
+    </section>
+
+    <section class="bottom-grid">
+      <div class="card">
+        <header class="card-head">
+          <h2>أهداف ذكية</h2>
+          <span class="badge-ai">Auto</span>
+        </header>
+        <div id="goalsList" class="goals"></div>
+      </div>
+      <div class="card">
+        <header class="card-head"><h2>أفضل مصادر الدخل</h2></header>
+        <div id="topSources" class="sources"></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <header class="card-head">
+        <h2>مقارنة الأشهر الستة الأخيرة</h2>
+        <span class="card-hint">الأداء الشهري</span>
+      </header>
+      <div id="monthlyComparison"></div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <header class="card-head">
+        <h2>مصفوفة ربحية العملاء</h2>
+        <span class="card-hint">مع LTV متوقّع</span>
+      </header>
+      <div id="clientProfitability"></div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <header class="card-head">
+        <h2>إيقاع الأسبوع</h2>
+        <span class="card-hint">أي يوم تحقق فيه أعلى دخل؟</span>
+      </header>
+      <div id="weeklyRhythm" class="rhythm-grid"></div>
+    </section>
+
+    <section class="activity-grid">
+      <div class="card">
+        <header class="card-head"><h2>أعلى الخدمات ربحية</h2></header>
+        <div id="serviceLeaderboard" class="leaderboard"></div>
+      </div>
+      <div class="card">
+        <header class="card-head"><h2>آخر النشاطات</h2></header>
+        <div id="recentActivity" class="activity-feed"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>

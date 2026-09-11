@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal OS — الدخل والمشاريع</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* فرض إخفاء الـ modals عندما يكون عليها [hidden] */
+    .modal-backdrop[hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">PO</div>
+      <div class="brand-text">
+        <div class="brand-name">Personal OS</div>
+        <div class="brand-sub">Business Control Center</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">▦</span><span>لوحة التحكم</span></a>
+      <a href="clients.html" class="nav-item"><span class="nav-icon">👤</span><span>العملاء</span></a>
+      <a href="income.html" class="nav-item active"><span class="nav-icon">₤</span><span>الدخل والمشاريع</span></a>
+     <a href="expenses.html" class="nav-item">
+        <span class="nav-icon">💸</span>
+        <span>المصروفات</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">AURA VISUALS</div>
+          <div class="user-sub">Personal Workspace</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">الدخل والمشاريع</h1>
+        <p class="page-sub" id="incomeSub">—</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" id="addIncomeBtn">+ مصدر دخل</button>
+      </div>
+    </header>
+
+    <!-- Summary strip -->
+    <section class="stat-strip">
+      <div class="stat-box">
+        <div class="stat-label">إجمالي الدخل الإضافي</div>
+        <div class="stat-value" id="incTotal">0 ج.م</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">عدد المصادر</div>
+        <div class="stat-value" id="incCount">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">أعلى مصدر</div>
+        <div class="stat-value" id="incTop">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">آخر إضافة</div>
+        <div class="stat-value" id="incLast">—</div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <div class="toolbar">
+      <input type="search" id="incSearch" class="input-search" placeholder="ابحث بالاسم أو التصنيف…" />
+      <select id="incCategoryFilter" class="input-select">
+        <option value="">كل التصنيفات</option>
+      </select>
+    </div>
+
+    <!-- Table -->
+    <section class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>المصدر</th>
+              <th>التصنيف</th>
+              <th>الملاحظات</th>
+              <th>المبلغ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="incomeBody"></tbody>
+        </table>
+      </div>
+      <div id="incomeEmpty" class="empty-state" hidden>
+        <div class="empty-icon">₤</div>
+        <h3>لا يوجد دخل إضافي بعد</h3>
+        <p>سجّل هنا أي دخل لا يأتي من العملاء (مشاريع، منتجات رقمية، راتب… إلخ).</p>
+        <button class="btn-primary" onclick="document.getElementById('addIncomeBtn').click()">+ إضافة مصدر</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="incomeModal" hidden>
+  <div class="modal">
+    <header class="modal-head">
+      <h2 id="incomeModalTitle">مصدر دخل جديد</h2>
+      <button class="modal-close" data-close="incomeModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <label class="field">
+        <span>اسم المصدر *</span>
+        <input type="text" id="iSource" placeholder="مثال: Startup Sale, Digital Product, Salary" />
+      </label>
+      <label class="field">
+        <span>التصنيف *</span>
+        <input type="text" id="iCategory" list="categoryList" placeholder="Startup / Product / Job / Other" />
+        <datalist id="categoryList">
+          <option value="Startup"></option>
+          <option value="Product"></option>
+          <option value="Job"></option>
+          <option value="Freelance"></option>
+          <option value="Investment"></option>
+          <option value="Other"></option>
+        </datalist>
+      </label>
+      <div class="form-grid">
+        <label class="field">
+          <span>المبلغ (ج.م) *</span>
+          <input type="number" id="iAmount" min="0" step="1" placeholder="0" />
+        </label>
+        <label class="field">
+          <span>التاريخ *</span>
+          <input type="date" id="iDate" />
+        </label>
+      </div>
+      <label class="field">
+        <span>ملاحظات</span>
+        <textarea id="iNotes" rows="3" placeholder="اختياري"></textarea>
+      </label>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="incomeModal">إلغاء</button>
+      <button class="btn-primary" id="saveIncomeBtn">حفظ</button>
+    </footer>
+  </div>
+</div>
+
+<script src="js/income.js"></script>
+</body>
+</html>
