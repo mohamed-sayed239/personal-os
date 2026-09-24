@@ -1,6 +1,6 @@
 /* =========================================================
-   Personal OS — Clients Module v4.0
-   Tiered pricing + Status + Tags + Bulk + CSV
+   Personal OS — Clients Module v5.2
+   Tiered pricing + Status + Tags + Bulk + CSV + Invoice Selector
    ========================================================= */
 
 const KEYS = {
@@ -48,7 +48,7 @@ const saveClients = c => Store.set(KEYS.clients, c);
 const getWorks    = () => Store.get(KEYS.works);
 const saveWorks   = w => Store.set(KEYS.works, w);
 
-/* ---------- Normalization for backward compat ---------- */
+/* ---------- Normalization ---------- */
 function normalizeWork(w) {
   return {
     ...w,
@@ -68,7 +68,7 @@ function getWorksNorm()   { return getWorks().map(normalizeWork); }
 function getClientsNorm() { return getClients().map(normalizeClient); }
 
 /* =========================================================
-   TIER LOGIC (unchanged)
+   TIER LOGIC
    ========================================================= */
 function normalizeService(svc) {
   if (svc.tiers && Array.isArray(svc.tiers) && svc.tiers.length) {
@@ -127,14 +127,14 @@ const state = {
   currentPage: 1,
   pageSize: 10,
   sortBy: 'date-desc',
-  /* client list filters */
   clientSearch: '',
   clientStatusFilter: '',
   clientSort: 'activity-desc',
-  /* works filters */
   workStatusFilter: '',
-  /* bulk */
   selectedWorks: new Set(),
+  /* invoice selector */
+  invoiceSelection: new Set(),
+  invoiceSearch: '',
 };
 
 /* =========================================================
@@ -152,7 +152,6 @@ function renderClientsList() {
     ? `${allClients.length} عميل مسجّل`
     : 'لا يوجد عملاء بعد';
 
-  /* Apply filters */
   const search = state.clientSearch.trim().toLowerCase();
   let clients = [...allClients];
 
@@ -169,7 +168,6 @@ function renderClientsList() {
     clients = clients.filter(c => c.status === state.clientStatusFilter);
   }
 
-  /* Compute aggregates for sorting */
   const allWorks = getWorksNorm();
   const enriched = clients.map(c => {
     const cw = allWorks.filter(w => w.clientId === c.id);
@@ -178,7 +176,6 @@ function renderClientsList() {
     return { ...c, _works: cw, _total: total, _last: last };
   });
 
-  /* Apply sort */
   switch (state.clientSort) {
     case 'revenue-desc': enriched.sort((a, b) => b._total - a._total); break;
     case 'revenue-asc':  enriched.sort((a, b) => a._total - b._total); break;
@@ -191,7 +188,6 @@ function renderClientsList() {
 
   count.textContent = `${enriched.length} / ${allClients.length}`;
 
-  /* Render */
   grid.innerHTML = '';
 
   if (!allClients.length) {
@@ -266,6 +262,7 @@ function openClient(id) {
   state.currentPage = 1;
   state.selectedWorks = new Set();
   state.workStatusFilter = '';
+  state.invoiceSelection = new Set();
 
   document.getElementById('listView').hidden = true;
   document.getElementById('detailView').hidden = false;
@@ -288,7 +285,6 @@ function renderClientDetail() {
 
   const works = getWorksNorm().filter(w => w.clientId === client.id);
 
-  /* Header */
   const status = CLIENT_STATUS[client.status] || CLIENT_STATUS.active;
   document.getElementById('detailName').innerHTML =
     escapeHtml(client.name) + ` <span class="client-status-dot ${status.cls}" style="margin-right:6px;vertical-align:middle;"></span>`;
@@ -299,7 +295,6 @@ function renderClientDetail() {
   if (client.tags && client.tags.length) meta.push('🏷 ' + client.tags.join(', '));
   document.getElementById('detailMeta').textContent = meta.join(' • ') || '—';
 
-  /* Stats */
   const total = works.reduce((s, w) => s + (Number(w.total) || 0), 0);
   const avg   = works.length ? total / works.length : 0;
   const last  = works.map(w => w.date).sort().pop();
@@ -309,10 +304,8 @@ function renderClientDetail() {
   document.getElementById('statAvg').textContent   = money(avg);
   document.getElementById('statLast').textContent  = last ? fmtDate(last) : '—';
 
-  /* Status distribution */
   renderStatusDist(works);
 
-  /* Form reset */
   if (!state.editingWorkId) {
     document.getElementById('workDate').value = today();
     document.getElementById('productCode').value = '';
@@ -363,7 +356,7 @@ function getStatusColor(status) {
 }
 
 /* =========================================================
-   SERVICES BUILDER (unchanged + tiers + override)
+   SERVICES BUILDER
    ========================================================= */
 function renderServicesBuilder() {
   const el = document.getElementById('servicesBuilder');
@@ -843,7 +836,6 @@ function cloneWork(id) {
   const w = getWorksNorm().find(x => x.id === id);
   if (!w) return;
 
-  /* Clear current form, then fill with the work's data */
   state.editingWorkId = null;
   state.draftQuantities = {};
   state.draftPriceOverrides = {};
@@ -888,7 +880,7 @@ function deleteWork(id) {
 }
 
 /* =========================================================
-   Works Table (with bulk + status + notes)
+   Works Table
    ========================================================= */
 function renderWorksTable() {
   ensureSortSelect();
@@ -943,6 +935,7 @@ function renderWorksTable() {
     const svcStr = (w.services || []).map(s => `${s.name} ×${s.qty}`).join(' • ');
     const st     = WORK_STATUS[w.status] || WORK_STATUS.delivered;
     const isChecked = state.selectedWorks.has(w.id);
+    const isInvoiced = !!w.invoicedAt;
 
     const tr = document.createElement('tr');
     if (w.id === state.editingWorkId) tr.classList.add('row-editing');
@@ -951,7 +944,10 @@ function renderWorksTable() {
         <input type="checkbox" class="row-checkbox" data-id="${w.id}" ${isChecked ? 'checked' : ''} />
       </td>
       <td>${fmtDate(w.date)}</td>
-      <td><span class="code-chip">${escapeHtml(w.productCode)}</span></td>
+      <td>
+        <span class="code-chip">${escapeHtml(w.productCode)}</span>
+        ${isInvoiced ? '<span class="inv-tag" style="margin-right:6px;">مفوتر</span>' : ''}
+      </td>
       <td>${escapeHtml(svcStr)}</td>
       <td>${qty}</td>
       <td class="td-total">${money(w.total)}</td>
@@ -984,7 +980,6 @@ function renderWorksTable() {
     tbody.appendChild(tr);
   }
 
-  /* Update select-all state */
   const selectAll = document.getElementById('selectAllWorks');
   if (selectAll) {
     const pageIds = pageItems.map(w => w.id);
@@ -1164,10 +1159,8 @@ function renderClientStatusPicker() {
 function renderTagsInput() {
   const wrap = document.getElementById('tagsWrap');
   const input = document.getElementById('tagInput');
-  /* Remove existing chips */
   wrap.querySelectorAll('.tg-chip').forEach(c => c.remove());
 
-  /* Add chips before input */
   for (const tag of state.draftClientTags) {
     const chip = document.createElement('span');
     chip.className = 'tg-chip';
@@ -1271,36 +1264,153 @@ function exportClientWorksCsv() {
 }
 
 /* =========================================================
-   INVOICE (unchanged — with summary)
+   INVOICE SELECTOR
    ========================================================= */
-function generateInvoice() {
+function openInvoiceSelector(preselectedIds = []) {
   const client = getClientsNorm().find(c => c.id === state.currentClientId);
   if (!client) return;
-  const works = getWorksNorm()
-    .filter(w => w.clientId === client.id)
-    .sort((a, b) => a.date.localeCompare(b.date));
 
-  if (!works.length) return alert('لا توجد أعمال لإنشاء فاتورة');
+  const works = getWorksNorm().filter(w => w.clientId === client.id);
+  if (!works.length) return alert('لا توجد أعمال لهذا العميل');
 
-  const invoiceNo = 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + client.id.slice(-4).toUpperCase();
-  const dateStr   = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+  state.invoiceSelection = new Set(preselectedIds);
+  state.invoiceSearch = '';
+
+  const searchInput = document.getElementById('invoiceSearch');
+  if (searchInput) searchInput.value = '';
+
+  document.getElementById('invoiceModal').hidden = false;
+  renderInvoiceWorksList();
+}
+
+function renderInvoiceWorksList() {
+  const el = document.getElementById('invoiceWorksList');
+  const clientId = state.currentClientId;
+  const search = (state.invoiceSearch || '').trim().toLowerCase();
+
+  let works = getWorksNorm().filter(w => w.clientId === clientId);
+
+  if (search) {
+    works = works.filter(w =>
+      String(w.productCode || '').toLowerCase().includes(search) ||
+      (w.services || []).some(s => s.name.toLowerCase().includes(search))
+    );
+  }
+  works.sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!works.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:#8892a6;">لا توجد نتائج مطابقة</div>';
+    updateInvoiceSummaryBar();
+    return;
+  }
+
+  el.innerHTML = works.map(w => {
+    const checked = state.invoiceSelection.has(w.id);
+    const svcStr = (w.services || []).map(s => `${s.name} ×${s.qty}`).join(' • ');
+    const qty = (w.services || []).reduce((s, x) => s + (Number(x.qty) || 0), 0);
+    const isInvoiced = !!w.invoicedAt;
+    return `
+      <label class="inv-work-item ${checked ? 'selected' : ''}">
+        <input type="checkbox" class="inv-work-check" data-id="${w.id}" ${checked ? 'checked' : ''} />
+        <div class="inv-work-body">
+          <div class="inv-work-head">
+            <span class="code-chip">${escapeHtml(w.productCode)}</span>
+            <span class="inv-work-date">${fmtDate(w.date)}</span>
+            ${isInvoiced ? '<span class="inv-tag">مفوتر سابقًا</span>' : ''}
+          </div>
+          <div class="inv-work-svcs">${escapeHtml(svcStr)}</div>
+        </div>
+        <div class="inv-work-total">
+          <span>${qty} قطعة</span>
+          <strong>${money(w.total)}</strong>
+        </div>
+      </label>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.inv-work-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.invoiceSelection.add(cb.dataset.id);
+      else            state.invoiceSelection.delete(cb.dataset.id);
+      cb.closest('.inv-work-item').classList.toggle('selected', cb.checked);
+      updateInvoiceSummaryBar();
+    });
+  });
+
+  updateInvoiceSummaryBar();
+}
+
+function updateInvoiceSummaryBar() {
+  const ids = [...state.invoiceSelection];
+  const works = getWorksNorm().filter(w => ids.includes(w.id));
+  const total = works.reduce((s, w) => s + (Number(w.total) || 0), 0);
+
+  document.getElementById('invoiceSelectedInfo').textContent = `${works.length} عمل محدد`;
+  document.getElementById('invoiceSelectedTotal').textContent = money(total);
+}
+
+/* =========================================================
+   GENERATE INVOICE v3 — بدون صندوق "ملخص الفاتورة"
+   ========================================================= */
+function generateInvoice(workIds) {
+  const client = getClientsNorm().find(c => c.id === state.currentClientId);
+  if (!client) return;
+
+  const allClientWorks = getWorksNorm().filter(w => w.clientId === client.id);
+  if (!allClientWorks.length) return alert('لا توجد أعمال لهذا العميل');
+  if (!workIds || !workIds.length) return alert('اختر عمل واحد على الأقل');
+
+  let works = allClientWorks.filter(w => workIds.includes(w.id));
+  if (!works.length) return alert('لا توجد أعمال للفاتورة');
+  works = [...works].sort((a, b) => a.date.localeCompare(b.date));
+
+  const invoiceNo = 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') +
+                    '-' + client.id.slice(-4).toUpperCase();
+  const dateStr = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
 
   let grandTotal = 0, grandQty = 0;
   const rowsHTML = works.map((w, i) => {
-    const svcStr = (w.services || []).map(s => `${s.name} ×${s.qty} (${nf.format(s.price)}/وحدة)`).join(' + ');
-    const qty = (w.services || []).reduce((s, x) => s + (Number(x.qty)||0), 0);
+    const svcStr = (w.services || []).map(s =>
+      `${escapeHtml(s.name)} ×${s.qty} <span style="color:#94a3b8">(${nf.format(s.price)}/وحدة)</span>`
+    ).join(' + ');
+    const qty = (w.services || []).reduce((s, x) => s + (Number(x.qty) || 0), 0);
     grandTotal += Number(w.total) || 0;
     grandQty += qty;
     return `
       <tr>
-        <td>${i + 1}</td>
+        <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
         <td>${fmtDate(w.date)}</td>
-        <td><b>${escapeHtml(w.productCode)}</b></td>
-        <td>${escapeHtml(svcStr)}</td>
-        <td style="text-align:center">${qty}</td>
-        <td style="text-align:left">${money(w.total)}</td>
+        <td><span class="code-chip">${escapeHtml(w.productCode)}</span></td>
+        <td>${svcStr}</td>
+        <td style="text-align:center;font-weight:700;">${qty}</td>
+        <td style="text-align:left;font-weight:700;color:#0f766e;">${money(w.total)}</td>
       </tr>`;
   }).join('');
+
+  /* ===== ملخص الخدمات — تجميع حسب الاسم والسعر ===== */
+  const agg = {};
+  for (const w of works) {
+    for (const s of (w.services || [])) {
+      const price = Number(s.price) || 0;
+      const key = `${s.name}__${price}`;
+      if (!agg[key]) agg[key] = { name: s.name, price, qty: 0 };
+      agg[key].qty += Number(s.qty) || 0;
+    }
+  }
+
+  const aggArr = Object.values(agg).map(v => ({
+    ...v,
+    total: v.qty * v.price,
+  })).sort((a, b) => b.total - a.total);
+
+  const serviceLinesHTML = aggArr.map(v => `
+    <div class="svc-line">
+      <span class="svc-name">${escapeHtml(v.name)}</span>
+      <span class="svc-calc"><b>${v.qty}</b> × ${nf.format(v.price)}</span>
+      <span class="svc-eq">=</span>
+      <span class="svc-amt">${money(v.total)}</span>
+    </div>
+  `).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -1309,76 +1419,172 @@ function generateInvoice() {
 <title>Invoice ${invoiceNo}</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Cairo',-apple-system,system-ui,sans-serif; background:#fff; color:#1a2333; padding:40px; }
-  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0f766e; padding-bottom:20px; margin-bottom:30px; }
-  .brand h1 { font-size:28px; letter-spacing:1px; color:#0f766e; }
-  .brand p  { font-size:13px; color:#666; margin-top:4px; }
-  .inv-meta { text-align:left; }
-  .inv-meta h2 { font-size:22px; color:#1a2333; letter-spacing:2px; margin-bottom:8px; }
-  .inv-meta p  { font-size:13px; color:#444; line-height:1.7; }
-  .section { margin-bottom:24px; }
-  .section-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:6px; }
-  .client-name { font-size:18px; font-weight:700; }
-  .client-info { font-size:13px; color:#555; line-height:1.7; }
-  table { width:100%; border-collapse:collapse; margin-top:20px; }
-  th { background:#f3f7f7; text-align:right; padding:12px 10px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#0f766e; border-bottom:2px solid #0f766e; }
-  td { padding:12px 10px; border-bottom:1px solid #eee; font-size:13px; }
-  .summary { display:flex; justify-content:flex-end; margin-top:24px; }
-  .summary-box { min-width:320px; border:2px solid #0f766e; border-radius:12px; overflow:hidden; background:#fff; }
-  .summary-row { display:flex; justify-content:space-between; align-items:center; padding:12px 20px; font-size:13px; border-bottom:1px solid #eef3f3; }
-  .summary-row:last-child { border-bottom:none; }
-  .summary-row.total { background:#0f766e; color:#fff; padding:16px 20px; font-size:17px; font-weight:800; }
-  .summary-row.total .s-label { color:#fff; }
-  .summary-row.total .s-value { color:#fff; font-size:20px; }
-  .footer { margin-top:40px; padding-top:20px; border-top:1px dashed #ccc; text-align:center; font-size:12px; color:#888; }
-  @media print { body { padding:20px; } }
+  body { font-family:'Cairo','Segoe UI',system-ui,sans-serif; background:#f5f7fa; color:#1a2333; padding:30px; }
+  .page { max-width:900px; margin:0 auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.08); }
+
+  .hero { background:linear-gradient(135deg,#0f766e,#115e59); color:#fff; padding:32px 40px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+  .hero .brand h1 { font-size:26px; letter-spacing:1.5px; font-weight:800; }
+  .hero .brand p  { font-size:12px; opacity:.85; margin-top:6px; }
+  .hero .meta { text-align:left; }
+  .hero .meta h2 { font-size:20px; letter-spacing:3px; font-weight:700; opacity:.95; }
+  .hero .meta p  { font-size:12px; opacity:.85; margin-top:6px; line-height:1.6; }
+
+  .body { padding:32px 40px; }
+
+  .info-row { display:flex; gap:20px; margin-bottom:26px; flex-wrap:wrap; }
+  .info-box { flex:1; min-width:220px; padding:16px 18px; background:#f8fafc; border-radius:12px; border:1px solid #e5e9f0; }
+  .info-box .label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:#0f766e; font-weight:700; margin-bottom:8px; }
+  .info-box .name { font-size:16px; font-weight:700; margin-bottom:6px; }
+  .info-box .detail { font-size:12px; color:#64748b; line-height:1.9; }
+
+  table { width:100%; border-collapse:collapse; margin-top:6px; border-radius:10px; overflow:hidden; }
+  thead th { background:#0f766e; color:#fff; padding:12px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; text-align:right; font-weight:700; }
+  tbody td { padding:12px; font-size:12.5px; border-bottom:1px solid #eef2f7; vertical-align:top; }
+  tbody tr:nth-child(even) td { background:#fafbfd; }
+  tbody tr:last-child td { border-bottom:none; }
+  .code-chip { display:inline-block; padding:3px 10px; border-radius:20px; background:#e0f2f1; color:#0f766e; font-weight:700; font-size:11.5px; }
+
+  .services-summary {
+    margin-top:30px;
+    padding:22px 26px;
+    background:linear-gradient(135deg,#f0fdf4,#ecfeff);
+    border:1.5px solid #5eead4;
+    border-radius:14px;
+  }
+  .services-summary h3 {
+    font-size:14px; color:#0f766e; font-weight:800;
+    margin-bottom:16px; letter-spacing:.5px;
+    padding-bottom:12px; border-bottom:2px solid #99f6e4;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .services-summary h3 .hint { font-size:11px; color:#64748b; font-weight:500; }
+
+  .svc-line {
+    display:grid;
+    grid-template-columns: 2fr 1fr 20px 1fr;
+    align-items:center;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px dashed #cbd5e1;
+    font-size:14px;
+  }
+  .svc-line:last-of-type { border-bottom:none; }
+  .svc-name { color:#1a2333; font-weight:700; }
+  .svc-calc { color:#475569; font-size:13px; text-align:center; }
+  .svc-calc b { color:#0f766e; font-weight:800; font-size:15px; }
+  .svc-eq { color:#94a3b8; text-align:center; font-weight:700; }
+  .svc-amt { color:#0f766e; font-weight:800; font-size:15px; text-align:left; white-space:nowrap; }
+
+  .grand-total {
+    margin-top:16px;
+    padding:16px 20px;
+    background:#0f766e;
+    color:#fff;
+    border-radius:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:17px;
+    font-weight:800;
+    letter-spacing:.5px;
+  }
+  .grand-total .gt-label { display:flex; align-items:center; gap:8px; }
+  .grand-total .gt-value { font-size:24px; }
+
+  .footer { text-align:center; padding:22px 40px 32px; font-size:12px; color:#94a3b8; border-top:1px solid #eef2f7; margin-top:24px; }
+  .footer strong { color:#0f766e; }
+
+  @media (max-width:700px) {
+    .body { padding:24px; }
+    .hero { padding:24px; }
+    .svc-line { grid-template-columns: 1fr; text-align:right; gap:4px; }
+    .svc-calc, .svc-eq { text-align:right; }
+    .svc-amt { text-align:right; font-size:16px; }
+  }
+
+  @media print {
+    body { padding:0; background:#fff; }
+    .page { box-shadow:none; border-radius:0; max-width:100%; }
+    .services-summary { page-break-inside:avoid; }
+  }
 </style>
 </head>
 <body>
-  <div class="head">
-    <div class="brand"><h1>AURA VISUALS</h1><p>Professional Image Editing & AI Services</p></div>
-    <div class="inv-meta">
+<div class="page">
+  <div class="hero">
+    <div class="brand">
+      <h1>AURA VISUALS</h1>
+      <p>Professional Image Editing & AI Services</p>
+    </div>
+    <div class="meta">
       <h2>INVOICE</h2>
       <p><b>#</b> ${invoiceNo}</p>
-      <p><b>Date:</b> ${dateStr}</p>
+      <p><b>التاريخ:</b> ${dateStr}</p>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-label">Billed To</div>
-    <div class="client-name">${escapeHtml(client.name)}</div>
-    <div class="client-info">
-      ${client.company ? escapeHtml(client.company) + '<br>' : ''}
-      ${client.phone   ? escapeHtml(client.phone)   + '<br>' : ''}
+  <div class="body">
+    <div class="info-row">
+      <div class="info-box">
+        <div class="label">Billed To</div>
+        <div class="name">${escapeHtml(client.name)}</div>
+        <div class="detail">
+          ${client.company ? escapeHtml(client.company) + '<br>' : ''}
+          ${client.phone   ? escapeHtml(client.phone)   : ''}
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th style="width:36px;">#</th>
+        <th style="width:100px;">التاريخ</th>
+        <th style="width:100px;">كود المنتج</th>
+        <th>الخدمات</th>
+        <th style="width:60px;text-align:center;">الكمية</th>
+        <th style="width:110px;text-align:left;">الإجمالي</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+
+    <!-- ملخص الخدمات مكان الإجمالي -->
+    <div class="services-summary">
+      <h3>
+        <span>🧾 ملخص الخدمات</span>
+        <span class="hint">الكمية × سعر الوحدة = الإجمالي</span>
+      </h3>
+
+      ${serviceLinesHTML}
+
+      <div class="grand-total">
+        <span class="gt-label">الإجمالي النهائي</span>
+        <span class="gt-value">${money(grandTotal)}</span>
+      </div>
     </div>
   </div>
 
-  <table>
-    <thead><tr>
-      <th>#</th><th>Date</th><th>Product Code</th><th>Services</th>
-      <th style="text-align:center">Qty</th>
-      <th style="text-align:left">Amount</th>
-    </tr></thead>
-    <tbody>${rowsHTML}</tbody>
-  </table>
-
-  <div class="summary">
-    <div class="summary-box">
-      <div class="summary-row"><span>عدد البنود</span><span class="s-value">${works.length}</span></div>
-      <div class="summary-row"><span>إجمالي الكميات</span><span class="s-value">${grandQty}</span></div>
-      <div class="summary-row"><span>متوسط قيمة العمل</span><span class="s-value">${money(works.length ? grandTotal / works.length : 0)}</span></div>
-      <div class="summary-row total"><span class="s-label">الإجمالي</span><span class="s-value">${money(grandTotal)}</span></div>
-    </div>
+  <div class="footer">
+    شكرًا لتعاملكم معنا — <strong>AURA VISUALS</strong>
   </div>
-
-  <div class="footer">Thank you for your business — AURA VISUALS</div>
-  <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+</div>
+<script>window.onload = () => setTimeout(() => window.print(), 400);<\/script>
 </body>
 </html>`;
 
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+
+  const allWorks = getWorks();
+  const now = new Date().toISOString();
+  for (const workItem of works) {
+    const idx = allWorks.findIndex(x => x.id === workItem.id);
+    if (idx > -1) allWorks[idx].invoicedAt = now;
+  }
+  saveWorks(allWorks);
+
+  renderWorksTable();
+  flash(`تم إنشاء فاتورة بـ ${works.length} عمل ✓`);
 }
 
 /* =========================================================
@@ -1414,7 +1620,10 @@ document.getElementById('saveClientBtn').addEventListener('click', saveClient);
 document.getElementById('backBtn').addEventListener('click', closeClient);
 document.getElementById('deleteClientBtn').addEventListener('click', deleteClient);
 document.getElementById('editClientBtn').addEventListener('click', () => openClientModal(state.currentClientId));
-document.getElementById('invoiceBtn').addEventListener('click', generateInvoice);
+
+/* زر الفاتورة الرئيسي */
+document.getElementById('invoiceBtn').addEventListener('click', () => openInvoiceSelector([]));
+
 document.getElementById('exportCsvBtn').addEventListener('click', exportClientWorksCsv);
 document.getElementById('addWorkBtn').addEventListener('click', saveWork);
 document.getElementById('resetWorkBtn').addEventListener('click', resetWorkForm);
@@ -1468,6 +1677,49 @@ document.getElementById('bulkChangeStatus').addEventListener('click', () => {
 });
 document.querySelectorAll('[data-bulk-status]').forEach(btn => {
   btn.addEventListener('click', () => bulkChangeStatus(btn.dataset.bulkStatus));
+});
+
+/* زر فاتورة المحدد (من الـ Bulk) */
+document.getElementById('bulkInvoice').addEventListener('click', () => {
+  if (state.selectedWorks.size === 0) return alert('اختر أعمال أولاً');
+  openInvoiceSelector([...state.selectedWorks]);
+});
+
+/* Invoice selector modal */
+document.getElementById('invoiceSearch').addEventListener('input', (e) => {
+  state.invoiceSearch = e.target.value;
+  renderInvoiceWorksList();
+});
+
+document.getElementById('invSelectAll').addEventListener('click', () => {
+  const clientId = state.currentClientId;
+  getWorksNorm()
+    .filter(w => w.clientId === clientId)
+    .forEach(w => state.invoiceSelection.add(w.id));
+  renderInvoiceWorksList();
+});
+
+document.getElementById('invSelectNone').addEventListener('click', () => {
+  state.invoiceSelection = new Set();
+  renderInvoiceWorksList();
+});
+
+document.getElementById('invSelectNew').addEventListener('click', () => {
+  const clientId = state.currentClientId;
+  state.invoiceSelection = new Set(
+    getWorksNorm()
+      .filter(w => w.clientId === clientId && !w.invoicedAt)
+      .map(w => w.id)
+  );
+  renderInvoiceWorksList();
+});
+
+document.getElementById('generateInvoiceBtn').addEventListener('click', () => {
+  const ids = [...state.invoiceSelection];
+  if (!ids.length) return alert('اختر عمل واحد على الأقل');
+  closeModal('invoiceModal');
+  generateInvoice(ids);
+  state.invoiceSelection = new Set();
 });
 
 /* Service modal */
@@ -1524,6 +1776,7 @@ document.getElementById('tagInput').addEventListener('keydown', (e) => {
     .pg-dots { color:#5a6378; padding:0 4px; }
     tr.row-editing td { background:rgba(74,222,128,0.06) !important; }
     .icon-btn.clone:hover { background:rgba(167,139,250,0.15); color:#a78bfa; }
+    .inv-tag { font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(251,191,36,.15); color:#fbbf24; font-weight:600; display:inline-block; }
   `;
   document.head.appendChild(style);
 })();
@@ -1532,7 +1785,6 @@ document.getElementById('tagInput').addEventListener('keydown', (e) => {
    Boot
    ========================================================= */
 document.addEventListener('DOMContentLoaded', () => {
-  /* pre-fill client sort select */
   document.getElementById('clientSort').value = state.clientSort;
 
   if (location.hash.startsWith('#client=')) {

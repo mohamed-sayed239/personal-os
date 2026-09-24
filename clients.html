@@ -109,7 +109,7 @@
 
     /* ===== Bulk Actions Bar ===== */
     .bulk-bar {
-      display:flex; align-items:center; gap:10px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
       padding:12px 16px;
       margin-top:12px;
       border-radius:10px;
@@ -129,6 +129,10 @@
       background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.3); color:#38bdf8;
     }
     .bulk-bar .bulk-status:hover { background:rgba(56,189,248,0.2); }
+    .bulk-bar .bulk-invoice {
+      background:rgba(167,139,250,0.12); border-color:rgba(167,139,250,0.3); color:#a78bfa;
+    }
+    .bulk-bar .bulk-invoice:hover { background:rgba(167,139,250,0.22); }
     .bulk-bar .bulk-delete {
       background:rgba(248,113,113,0.12); border-color:rgba(248,113,113,0.3); color:#f87171;
     }
@@ -229,6 +233,49 @@
       color:#e8edf7; font-family:inherit; font-size:12px;
       outline:none; padding:4px;
     }
+
+    /* =========================================================
+       INVOICE SELECTOR MODAL (NEW)
+       ========================================================= */
+    .invoice-toolbar {
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      padding-bottom:12px; margin-bottom:12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .invoice-toolbar .input-search { flex:1; min-width:160px; }
+    .invoice-works-list {
+      max-height:420px; overflow-y:auto;
+      display:flex; flex-direction:column; gap:8px;
+      padding-right:4px;
+    }
+    .invoice-works-list::-webkit-scrollbar { width:6px; }
+    .invoice-works-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:3px; }
+    .inv-work-item {
+      display:flex; align-items:center; gap:12px;
+      padding:12px 14px; border-radius:10px;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.06);
+      cursor:pointer; transition:.15s;
+    }
+    .inv-work-item:hover { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); }
+    .inv-work-item.selected { background:rgba(74,222,128,.06); border-color:rgba(74,222,128,.35); }
+    .inv-work-check { width:18px; height:18px; accent-color:#4ade80; cursor:pointer; flex-shrink:0; }
+    .inv-work-body { flex:1; min-width:0; }
+    .inv-work-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+    .inv-work-date { font-size:11px; color:#8892a6; }
+    .inv-tag { font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(251,191,36,.15); color:#fbbf24; font-weight:600; }
+    .inv-work-svcs { font-size:12px; color:#8892a6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .inv-work-total { display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; }
+    .inv-work-total span { font-size:10px; color:#5a6378; }
+    .inv-work-total strong { font-size:14px; color:#4ade80; }
+    .invoice-summary-bar {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:14px; padding:12px 16px;
+      background:linear-gradient(135deg, rgba(74,222,128,.08), rgba(56,189,248,.06));
+      border:1px solid rgba(74,222,128,.25);
+      border-radius:10px; font-size:13px; color:#e8edf7;
+    }
+    .invoice-summary-bar strong { font-size:18px; color:#4ade80; }
   </style>
 </head>
 <body>
@@ -443,6 +490,7 @@
         <div class="bulk-bar" id="bulkBar" hidden>
           <span class="bl-count" id="bulkCount">0 محدد</span>
           <span class="bl-spacer"></span>
+          <button type="button" class="bulk-invoice" id="bulkInvoice">🧾 فاتورة المحدد</button>
           <button type="button" class="bulk-status" id="bulkChangeStatus">تغيير الحالة</button>
           <button type="button" class="bulk-delete" id="bulkDelete">حذف المحدد</button>
           <button type="button" class="bulk-cancel" id="bulkCancel">إلغاء</button>
@@ -558,6 +606,33 @@
         <button type="button" class="btn-ghost" data-bulk-status="paid" style="padding:14px;justify-content:flex-start;">💰 مدفوع</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ INVOICE SELECTOR MODAL (NEW) ============ -->
+<div class="modal-backdrop" id="invoiceModal" hidden>
+  <div class="modal" style="max-width:720px;width:94vw;">
+    <header class="modal-head">
+      <h2>🧾 اختر الأعمال للفاتورة</h2>
+      <button class="modal-close" data-close="invoiceModal">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="invoice-toolbar">
+        <input type="search" id="invoiceSearch" class="input-search" placeholder="ابحث بكود المنتج أو اسم الخدمة…" />
+        <button type="button" class="btn-ghost" id="invSelectAll">تحديد الكل</button>
+        <button type="button" class="btn-ghost" id="invSelectNone">إلغاء</button>
+        <button type="button" class="btn-ghost" id="invSelectNew">الجديدة فقط</button>
+      </div>
+      <div id="invoiceWorksList" class="invoice-works-list"></div>
+      <div class="invoice-summary-bar">
+        <span id="invoiceSelectedInfo">0 عمل محدد</span>
+        <strong id="invoiceSelectedTotal">0 ج.م</strong>
+      </div>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn-ghost" data-close="invoiceModal">إلغاء</button>
+      <button class="btn-primary" id="generateInvoiceBtn">إنشاء الفاتورة</button>
+    </footer>
   </div>
 </div>
 
